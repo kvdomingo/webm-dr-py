@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from argparse import ArgumentParser
 from os import PathLike
 from pathlib import Path
@@ -21,7 +22,7 @@ class WebmDynamicResolution:
         self.base = Path(__file__).resolve().parent.parent
         self.mode = mode
         self.input_path = Path(input_path).resolve()
-        self.fps_pattern = re.compile(r"(\d+\.\d+|\d+) fps")
+        self.fps_re = re.compile(r"(\d+\.\d+|\d+) fps")
 
         self.output_path = Path(output_path).resolve()
         if self.output_path.is_dir():
@@ -40,25 +41,26 @@ class WebmDynamicResolution:
         self.resize_images(frame_bases)
         logger.info("Frames -> WebMs...")
         self.frames_to_webms(frame_bases, frame_rate)
+        logger.info("Concatting WebMs...")
         self.concat_webms(frame_bases)
 
     def extract_frame_rate(self, out: str) -> str:
         lines = out.split("\n")
         for line in lines:
-            if line.strip().startswith("Stream"):
-                match = re.match(self.fps_pattern, line)
+            if (l_ := re.sub(r"^\s+", "", line).lower()).startswith("stream"):
+                match = self.fps_re.search(l_)
                 if match is not None:
-                    return match[0]
+                    return match.groups()[0]
         raise ValueError("No regex match for frame rate.")
 
     def extract_frames(self) -> str:
         out_path = self.temp / "out%04d.png"
         cmd = subprocess.run(
             ["ffmpeg", "-hide_banner", "-i", str(self.input_path), str(out_path)],
-            encoding="utf-8",
-            shell=True,
-            capture_output=True,
             check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
         )
         return self.extract_frame_rate(cmd.stdout)
 
@@ -67,26 +69,28 @@ class WebmDynamicResolution:
 
     def resize_images(self, frame_bases: list[Path]):
         for i, base in enumerate(frame_bases):
-            res_image_path = base.parent / f"{base.name}_r.{base.suffix}"
+            res_image_path = base.parent / f"{base.stem}_r{base.suffix}"
             with Image.open(base) as f:
                 if i == 0:
                     x, y = f.size
-                    os.rename(base, res_image_path)
+                    shutil.copy2(base, res_image_path)
                     continue
                 match self.mode:
                     case 1:
-                        img = f.resize((random.randint(50, 1000), random.randint(50, 1000)), resample=Image.LANCZOS)
+                        img = f.resize(
+                            (random.randint(50, 1000), random.randint(50, 1000)), resample=Image.Resampling.LANCZOS
+                        )
                     case 2:
                         x += 20
                         y += 20
-                        img = f.resize((x, y), resample=Image.LANCZOS)
+                        img = f.resize((x, y), resample=Image.Resampling.LANCZOS)
                 img.save(res_image_path)
 
     def frames_to_webms(self, frame_bases: list[Path], frame_rate: str):
         for base in frame_bases:
-            in_filename = base.parent / f"{base.name}_r.{base.suffix}"
-            out_filename = base.parent / f"{base.name}.webm"
-            subprocess.run(
+            in_filename = base.parent / f"{base.stem}_r{base.suffix}"
+            out_filename = base.parent / f"{base.stem}.webm"
+            cmd = subprocess.run(
                 [
                     "ffmpeg",
                     "-hide_banner",
@@ -104,18 +108,19 @@ class WebmDynamicResolution:
                     "yuva420p",
                     str(out_filename),
                 ],
-                encoding="utf-8",
-                shell=True,
-                capture_output=True,
-                check=True,
+                text=True,
+                stderr=subprocess.PIPE,
             )
+            if cmd.returncode != 0:
+                logger.error(cmd.stderr)
+                sys.exit(cmd.returncode)
 
     def concat_webms(self, frame_bases: list[Path]):
         with open(self.concat_path, "w+") as f:
             for base in frame_bases:
-                line = f"file {base.name}.webm\n"
+                line = f"file {base.stem}.webm\n"
                 f.write(line)
-        subprocess.run(
+        cmd = subprocess.run(
             [
                 "ffmpeg",
                 "-hide_banner",
@@ -132,11 +137,12 @@ class WebmDynamicResolution:
                 "-y",
                 str(self.output_path),
             ],
-            encoding="utf-8",
-            shell=True,
-            capture_output=True,
-            check=True,
+            text=True,
+            stderr=subprocess.PIPE,
         )
+        if cmd.returncode != 0:
+            logger.error(cmd.stderr)
+            sys.exit(cmd.returncode)
 
 
 if __name__ == "__main__":
@@ -152,6 +158,8 @@ if __name__ == "__main__":
     webm_dr = WebmDynamicResolution(mode=args.mode, input_path=args.input_path[0], output_path=args.output_path)
     try:
         webm_dr()
-    except:
+    except Exception as e:
+        logger.exception(e)
+    finally:
         if webm_dr.temp.exists():
             shutil.rmtree(webm_dr.temp)

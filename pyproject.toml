@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "webm-dr-py"
+name = "webm-dr"
 version = "0.1.0"
 description = ""
 authors = ["Kenneth V. Domingo <hello@kvdomingo.xyz>"]
