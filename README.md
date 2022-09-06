@@ -3,7 +3,7 @@
 Python implementation of [Sorrow446/WebM-Dynamic-Resolution](https://github.com/Sorrow446/WebM-Dynamic-Resolution).
 
 ## Requirements:
-- [Python](https://python.org/downloads) >= 3.10
+- [Python](https://python.org/downloads) >= 3.7
 - [ffmpeg](https://www.gyan.dev/ffmpeg/builds/)
 
 ## Usage

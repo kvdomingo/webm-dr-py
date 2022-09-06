@@ -75,15 +75,14 @@ class WebmDynamicResolution:
                     x, y = f.size
                     shutil.copy2(base, res_image_path)
                     continue
-                match self.mode:
-                    case 1:
-                        img = f.resize(
-                            (random.randint(50, 1000), random.randint(50, 1000)), resample=Image.Resampling.LANCZOS
-                        )
-                    case 2:
-                        x += 20
-                        y += 20
-                        img = f.resize((x, y), resample=Image.Resampling.LANCZOS)
+                if self.mode == 1:
+                    img = f.resize(
+                        (random.randint(50, 1000), random.randint(50, 1000)), resample=Image.Resampling.LANCZOS
+                    )
+                elif self.mode == 2:
+                    x += 20
+                    y += 20
+                    img = f.resize((x, y), resample=Image.Resampling.LANCZOS)
                 img.save(res_image_path)
 
     def frames_to_webms(self, frame_bases: list[Path], frame_rate: str):
