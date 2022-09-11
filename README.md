@@ -1,6 +1,6 @@
 # webm-dr-py
 
-Python implementation of [Sorrow446/WebM-Dynamic-Resolution](https://github.com/Sorrow446/WebM-Dynamic-Resolution).
+Python implementation based on [Sorrow446/WebM-Dynamic-Resolution](https://github.com/Sorrow446/WebM-Dynamic-Resolution).
 
 ## Requirements:
 - [Python](https://python.org/downloads) >= 3.7

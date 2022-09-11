@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 from argparse import ArgumentParser
+from enum import Enum
 from os import PathLike
 from pathlib import Path
 from random import SystemRandom
@@ -15,12 +16,18 @@ from PIL import Image
 random = SystemRandom()
 
 
+class ModeEnum(Enum):
+    RANDOM = 1
+    GROWING = 2
+    SQUASH = 3
+
+
 @logger.catch()
 class WebmDynamicResolution:
     def __init__(self, mode: int, input_path: PathLike, output_path: PathLike):
         random.seed(time_ns())
         self.base = Path(__file__).resolve().parent.parent
-        self.mode = mode
+        self.mode = ModeEnum(mode)
         self.input_path = Path(input_path).resolve()
         self.fps_re = re.compile(r"(\d+\.\d+|\d+) fps")
 
@@ -75,13 +82,20 @@ class WebmDynamicResolution:
                     x, y = f.size
                     shutil.copy2(base, res_image_path)
                     continue
-                if self.mode == 1:
+                if self.mode == ModeEnum.RANDOM:
                     img = f.resize(
                         (random.randint(50, 1000), random.randint(50, 1000)), resample=Image.Resampling.LANCZOS
                     )
-                elif self.mode == 2:
+                elif self.mode == ModeEnum.GROWING:
                     x += 20
                     y += 20
+                    img = f.resize((x, y), resample=Image.Resampling.LANCZOS)
+                elif self.mode == ModeEnum.SQUASH:
+                    x += 20
+                    if y - 20 > 0:
+                        y -= 20
+                    else:
+                        y = 1
                     img = f.resize((x, y), resample=Image.Resampling.LANCZOS)
                 img.save(res_image_path)
 
@@ -150,10 +164,14 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output-path", type=str, help="Path to write output file to.")
     parser.add_argument("input_path", metavar="input_path", type=str, nargs="+", help="Path of input file.")
     args = parser.parse_args()
-    if args.mode not in [1, 2]:
+    if args.mode not in [e.value for e in ModeEnum]:
         raise ValueError("Mode must be 1 or 2.")
-    if not args.output_path.lower().endswith(".webm"):
-        raise ValueError('Output file extension must be ".webm"')
+    if args.output_path:
+        if not args.output_path.lower().endswith(".webm"):
+            raise ValueError('Output file extension must be ".webm"')
+    else:
+        input_path = Path(args.input_path).resolve()
+        output_path = input_path.parent / f"{input_path.stem}.webm"
     webm_dr = WebmDynamicResolution(mode=args.mode, input_path=args.input_path[0], output_path=args.output_path)
     try:
         webm_dr()
