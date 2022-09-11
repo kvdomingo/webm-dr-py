@@ -158,21 +158,22 @@ class WebmDynamicResolution:
             sys.exit(cmd.returncode)
 
 
-if __name__ == "__main__":
+def cli():
     parser = ArgumentParser()
-    parser.add_argument("-m", "--mode", type=int, help="1 = random, 2 = growing. default = 1", default=1)
+    parser.add_argument("-m", "--mode", type=int, help="1 = random, 2 = growing, 3 = squash. default = 1", default=1)
     parser.add_argument("-o", "--output-path", type=str, help="Path to write output file to.")
     parser.add_argument("input_path", metavar="input_path", type=str, nargs="+", help="Path of input file.")
     args = parser.parse_args()
     if args.mode not in [e.value for e in ModeEnum]:
-        raise ValueError("Mode must be 1 or 2.")
+        raise ValueError(f"Mode must be in {list(ModeEnum)}")
     if args.output_path:
         if not args.output_path.lower().endswith(".webm"):
             raise ValueError('Output file extension must be ".webm"')
+        output_path = args.output_path
     else:
         input_path = Path(args.input_path).resolve()
         output_path = input_path.parent / f"{input_path.stem}.webm"
-    webm_dr = WebmDynamicResolution(mode=args.mode, input_path=args.input_path[0], output_path=args.output_path)
+    webm_dr = WebmDynamicResolution(mode=args.mode, input_path=args.input_path[0], output_path=output_path)
     try:
         webm_dr()
     except Exception as e:
@@ -180,3 +181,7 @@ if __name__ == "__main__":
     finally:
         if webm_dr.temp.exists():
             shutil.rmtree(webm_dr.temp)
+
+
+if __name__ == "__main__":
+    cli()

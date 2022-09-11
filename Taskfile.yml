@@ -1,0 +1,32 @@
+version: '3'
+
+env:
+  NAME: webm_dr
+
+tasks:
+  build-builder:
+    desc: Build builder image
+    cmds:
+      - docker build -t kvdomingo/$NAME-make-linux:latest .
+
+  publish-builder:
+    desc: Push builder image to Docker Hub
+    cmds:
+      - docker push kvdomingo/$NAME-make-linux:latest
+
+  make-builder:
+    desc: Build and push builder image
+    cmds:
+      - task build-builder
+      - task publish-builder
+
+  build:
+    desc: Build standalone executable
+    cmds:
+      - poetry run pyinstaller -F --clean --name $NAME setup.py
+
+  build-all:
+    desc: Build standalone executables for Windows and Linux
+    cmds:
+      - task build
+      - docker run -v "$(pwd)":/$NAME --rm --name $NAME-makelinux kvdomingo/$NAME-make-linux:latest
